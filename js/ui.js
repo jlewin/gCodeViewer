@@ -177,6 +177,8 @@ GCODE.ui = (function(){
         evt.stopPropagation();
         evt.preventDefault();
 
+        $('.dropdown.open').removeClass('open');
+
         var files = evt.dataTransfer?evt.dataTransfer.files:evt.target.files; // FileList object.
 
         var output = [];
@@ -194,6 +196,9 @@ GCODE.ui = (function(){
                 chooseAccordion('progressAccordionTab');
                 setProgress('loadProgress', 0);
                 setProgress('analyzeProgress', 0);
+
+                $('#progressBlock').fadeIn();
+
 //                myCodeMirror.setValue(theFile.target.result);
                 GCODE.gCodeReader.loadFile(theFile);
                 if(showGCode){
@@ -299,6 +304,8 @@ GCODE.ui = (function(){
                 GCODE.ui.updateOptions();
                 $('#myTab').find('a[href="#tab2d"]').tab('show');
                 $('#runAnalysisButton').removeClass('disabled');
+                $('#progressBlock').hide();
+
                 break;
             case 'returnLayer':
                 GCODE.gCodeReader.processLayerFromWorker(data.msg);
@@ -348,9 +355,56 @@ GCODE.ui = (function(){
         return true;
     };
 
+    function valueOrDefault(id, defaultVal)
+    {
+    	var raw = $(id).attr('value');
+		return Number(raw) ? Number(raw) : defaultVal;
+    }
+
 
     return {
-        worker: undefined,
+    	worker: undefined,
+
+    	loadDefault: function(url)
+    	{
+    		var xhr = new XMLHttpRequest();
+    		xhr.open('GET', 'latest.txt', true);
+    		xhr.responseType = 'blob';
+
+    		xhr.onload = function(e) {
+    			if (this.status == 200) {
+
+    				var blob = new Blob([this.response], { type: 'text/plain' });
+
+    				var reader = new FileReader();
+    				reader.onload = function (theFile) {
+
+    					chooseAccordion('progressAccordionTab');
+    					setProgress('loadProgress', 0);
+    					setProgress('analyzeProgress', 0);
+
+    					$('#progressBlock').fadeIn();
+
+    					
+    					GCODE.gCodeReader.loadFile(theFile);
+    					if (showGCode) {
+    						myCodeMirror.setValue(theFile.target.result);
+    					} else {
+    						myCodeMirror.setValue("GCode view is disabled. You can enable it in 'GCode analyzer options' section.")
+    					}
+
+    				};
+
+    				reader.readAsText(blob);
+    				
+    				}
+    		};
+
+    		xhr.send();
+
+
+    	},
+
         initHandlers: function(){
             var capabilitiesResult = checkCapabilities();
             if(!capabilitiesResult){
@@ -414,35 +468,32 @@ GCODE.ui = (function(){
 
         },
 
-        processOptions: function(){
-            if(document.getElementById('sortLayersCheckbox').checked)GCODE.gCodeReader.setOption({sortLayers: true});
-            else GCODE.gCodeReader.setOption({sortLayers: false});
-
-            if(document.getElementById('purgeEmptyLayersCheckbox').checked)GCODE.gCodeReader.setOption({purgeEmptyLayers: true});
-            else GCODE.gCodeReader.setOption({purgeEmptyLayers: false});
-
+        processOptions: function () {
             showGCode = document.getElementById('showGCodeCheckbox').checked;
+        	var settings = {
+        		filamentDia: valueOrDefault('#filamentDia', 1.75),
+        		nozzleDia: valueOrDefault('#nozzleDia', 0.4),
+        		hourlyCost: valueOrDefault('#hourlyCost', 1.0),
+        		filamentPrice: valueOrDefault('#filamentPrice', 0.05),
+        		filamentType: $('#plasticABS').is(':checked') ? 'ABS' : 'PLA',
+        		sortLayers: document.getElementById('sortLayersCheckbox').checked,
+        		purgeEmptyLayers: document.getElementById('purgeEmptyLayersCheckbox').checked,
+        		moveModel: document.getElementById('moveModelCheckbox').checked,
+        		showMoves: document.getElementById('showMovesCheckbox').checked,
+        		showRetracts: document.getElementById('showRetractsCheckbox').checked,
+        		differentiateColors: document.getElementById('differentiateColorsCheckbox').checked,
+        		actualWidth: document.getElementById('thickExtrusionCheckbox').checked,
+        		alpha: document.getElementById('alphaCheckbox').checked,
+        		showNextLayer: document.getElementById('showNextLayer').checked,
+        		drawGrid: document.getElementById('drawGrid').checked,
+        		nozzleDia: document.getElementById('nozzleDia').value
+        	};
 
-            if(document.getElementById('moveModelCheckbox').checked)GCODE.renderer.setOption({moveModel: true});
-            else GCODE.renderer.setOption({moveModel: false});
+        	debugger;
 
-            if(document.getElementById('showMovesCheckbox').checked)GCODE.renderer.setOption({showMoves: true});
-            else GCODE.renderer.setOption({showMoves: false});
+        	localStorage.setItem('uisettings', JSON.stringify(settings));
 
-            if(document.getElementById('showRetractsCheckbox').checked)GCODE.renderer.setOption({showRetracts: true});
-            else GCODE.renderer.setOption({showRetracts: false});
-
-            if(document.getElementById('differentiateColorsCheckbox').checked)GCODE.renderer.setOption({differentiateColors: true});
-            else GCODE.renderer.setOption({differentiateColors: false});
-
-            if(document.getElementById('thickExtrusionCheckbox').checked)GCODE.renderer.setOption({actualWidth: true});
-            else GCODE.renderer.setOption({actualWidth: false});
-
-            if(document.getElementById('alphaCheckbox').checked)GCODE.renderer.setOption({alpha: true});
-            else GCODE.renderer.setOption({alpha: false});
-
-            if(document.getElementById('showNextLayer').checked)GCODE.renderer.setOption({showNextLayer: true});
-            else GCODE.renderer.setOption({showNextLayer: false});
+        	GCODE.renderer.setOption(settings);
 
             if(document.getElementById('renderErrors').checked){
                 GCODE.renderer.setOption({showMoves: false});
@@ -452,25 +503,7 @@ GCODE.ui = (function(){
             }
             else GCODE.renderer.setOption({renderAnalysis: false});
 
-            var filamentDia = 1.75;
-            if(Number($('#filamentDia').attr('value'))) {filamentDia = Number($('#filamentDia').attr('value'));}
-            GCODE.gCodeReader.setOption({filamentDia: filamentDia});
-
-            var nozzleDia = 0.4;
-            if(Number($('#nozzleDia').attr('value'))) {nozzleDia = Number($('#nozzleDia').attr('value'));}
-            GCODE.gCodeReader.setOption({nozzleDia: nozzleDia});
-
-            var hourlyCost = 1.0;
-            if(Number($('#hourlyCost').attr('value'))) {hourlyCost = Number($('#hourlyCost').attr('value'));}
-            GCODE.gCodeReader.setOption({hourlyCost: hourlyCost});
-
-            var filamentPrice = 0.05;
-            if(Number($('#filamentPrice').attr('value'))) {filamentPrice = Number($('#filamentPrice').attr('value'));}
-            GCODE.gCodeReader.setOption({filamentPrice: filamentPrice});
-
-            if(document.getElementById('plasticABS').checked)GCODE.gCodeReader.setOption({filamentType: "ABS"});
-            if(document.getElementById('plasticPLA').checked)GCODE.gCodeReader.setOption({filamentType: "PLA"});
-
+          
             if(document.getElementById('speedDisplayRadio').checked)GCODE.renderer.setOption({speedDisplayType: displayType.speed});
             if(document.getElementById('exPerMMRadio').checked)GCODE.renderer.setOption({speedDisplayType: displayType.expermm});
             if(document.getElementById('volPerSecRadio').checked)GCODE.renderer.setOption({speedDisplayType: displayType.volpersec});
@@ -482,8 +515,7 @@ GCODE.ui = (function(){
 
         updateOptions: function(){
             var gcodeOptions = GCODE.gCodeReader.getOptions();
-
-            document.getElementById('nozzleDia').value = gcodeOptions['nozzleDia'];
+            //document.getElementById('nozzleDia').value = gcodeOptions['nozzleDia'];
             document.getElementById('filamentDia').value = gcodeOptions['filamentDia'];
         },
 
@@ -491,7 +523,12 @@ GCODE.ui = (function(){
             initSliders();
         },
 
-        setOption: function(options){
+        setSize: function(width, height)
+        {
+        	myCodeMirror.setSize(width, height);
+        },
+
+        setOption: function (options) {
             for(var opt in options){
                 uiOptions[opt] = options[opt];
             }

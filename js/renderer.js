@@ -5,6 +5,7 @@
  * To change this template use File | Settings | File Templates.
  */
 
+global_adjust = 45;
 
 GCODE.renderer = (function(){
 // ***** PRIVATE ******
@@ -13,7 +14,10 @@ GCODE.renderer = (function(){
     var zoomFactor= 3, zoomFactorDelta = 0.4;
     var gridSizeX=200,gridSizeY=200,gridStep=10;
     var ctxHeight, ctxWidth;
-    var prevX=0, prevY=0;
+    var prevX=0, 
+		prevY=0,
+		prevRawX=0,
+		prevRawY=0;
 
 //    var colorGrid="#bbbbbb", colorLine="#000000";
     var sliderHor, sliderVer;
@@ -61,7 +65,10 @@ GCODE.renderer = (function(){
         var p1 = ctx.transformedPoint(0,0);
         var p2 = ctx.transformedPoint(canvas.width,canvas.height);
         ctx.clearRect(p1.x,p1.y,p2.x-p1.x,p2.y-p1.y);
-        drawGrid();
+
+        if (renderOptions["drawGrid"])
+        	drawGrid();
+
         if(renderOptions['alpha']){ctx.globalAlpha = 0.6;}
         else {ctx.globalAlpha = 1;}
         if(renderOptions['actualWidth']){renderOptions['extrusionWidth'] = gCodeOpts['filamentDia']*gCodeOpts['wh']/zoomFactor;}
@@ -128,6 +135,7 @@ GCODE.renderer = (function(){
         }
     }
 
+    var lastUpdateValues = null;
 
     var  startCanvas = function() {
         canvas = document.getElementById('canvas');
@@ -138,8 +146,17 @@ GCODE.renderer = (function(){
         }
 
         ctx = canvas.getContext('2d'); // Получаем 2D контекст
+
+        //ctx.font = "8px Arial";
+
+        ctx.font = '1px Sans-Serif';
+		
+        var lineWidth = ctx.lineWidth;
+
+
         ctxHeight = canvas.height;
         ctxWidth = canvas.width;
+
         lastX = ctxWidth/2;
         lastY = ctxHeight/2;
         ctx.lineWidth = 2;
@@ -378,11 +395,98 @@ GCODE.renderer = (function(){
                         }
                         ctx.strokeStyle = gradient;
                     }
-                    ctx.lineWidth = renderOptions['extrusionWidth'];
+
+                    var zoomedX = x * zoomFactor,
+						zoomedY = y * zoomFactor,
+						isMostRecentExtrude = i == toProgress;
+
+                    extrusionWidth = renderOptions['nozzleDia'] * zoomFactor;
+                    debugger;
+
+                    ctx.lineWidth = extrusionWidth;
+
+                    //extrusionWidth = 1 * zoomFactor;
+
+                    //ctx.lineWidth = extrusionWidth;
+
+                    ctx.strokeStyle = isMostRecentExtrude ? '#d0f476' : 'lightblue';
                     ctx.beginPath();
                     ctx.moveTo(prevX, prevY);
-                    ctx.lineTo(x*zoomFactor,y*zoomFactor);
+                    ctx.lineTo(zoomedX,zoomedY);
                     ctx.stroke();
+
+                    ////ctx.lineWidth = 0.2;
+                    ////ctx.setLineDash([1, 2]);
+                    ////ctx.strokeStyle = 'black';
+
+                    //ctx.beginPath();
+                    //ctx.moveTo(prevX, prevY);
+                    //ctx.lineTo(zoomedX, zoomedY);
+                    //ctx.stroke();
+
+                    ctx.setLineDash([]);
+
+                    ctx.lineWidth = 1;;
+
+                    ctx.strokeStyle = 'red';
+                    ctx.beginPath();
+
+					console.log(cmds[i]);
+					$('#gcode-line').html(cmds[i].line +'<br>'+ JSON.stringify(cmds[i]));
+
+                    function drawMarker(label, x, y, slope, color, highlightColor, extrusionWidth, zoomFactor) {
+                    	ctx.beginPath();
+                    	ctx.arc(x, y, extrusionWidth / 2, 0, Math.PI * 2);
+                    	ctx.fillStyle = color;
+                    	ctx.fill();
+                    	
+                    	// Center point
+                    	ctx.beginPath()
+                    	ctx.fillStyle = highlightColor;
+                    	ctx.arc(x, y, 0.1 * scaleFactor, 0, Math.PI * 2);
+                    	ctx.fill();
+
+					}
+
+
+                    if(isMostRecentExtrude /* && lastUpdateValues != prevX + ":" + prevY */) 
+                    {
+                    	//ctx.strokeStyle = "red";
+                    	//ctx.beginPath();
+                    	//ctx.rect(-5 * zoomFactor, -5 * zoomFactor, 10 * zoomFactor, 10 * zoomFactor);
+                    	//ctx.lineWidth = 0.1;
+                    	//ctx.stroke();
+
+						
+                    	//////canvas2d.fillStyle = "rgba(255, 255, 255, 0.5)";
+
+                    	var originalAlpha = ctx.globalAlpha;
+                    	ctx.globalAlpha = 1
+
+                    	var slope = (prevY - zoomedY) / (prevX - zoomedX);
+                    	var length = Math.sqrt(Math.pow(prevX-zoomedX, 2)+Math.pow(prevY-zoomedY, 2));
+
+                    	drawMarker(prevRawX + ',' + prevRawY, prevX, prevY, slope, "green", "#666", extrusionWidth, zoomFactor);
+                    	drawMarker(x + ',' + y, zoomedX, zoomedY, slope, "red", "#666", extrusionWidth, zoomFactor);
+
+                    	lineInfo.start.text(prevRawX + ',' + prevRawY);
+                    	lineInfo.end.text(x + ',' + y);
+                    	lineInfo.slope.text(parseFloat(slope).toFixed(2));
+                    	lineInfo.length.text(parseFloat(length).toFixed(2));
+						
+						var extFactor = cmds[i].extrusion / length;
+						lineInfo.extFactor.text(parseFloat(extFactor).toFixed(4));
+						
+						
+						//lineInfo.extPerMM.text)
+
+                    	ctx.globalAlpha = originalAlpha;
+
+                    	ctx.beginPath();
+
+                    	lastUpdateValues = prevX + ":" + prevY;
+                    }
+
                 }else {
                     if(renderOptions["showRetracts"]){
 //                        ctx.stroke();
@@ -399,9 +503,14 @@ GCODE.renderer = (function(){
             }
             prevX = x*zoomFactor;
             prevY = y*zoomFactor;
+
+            prevRawX = x;
+            prevRawY = y;
         }
         ctx.stroke();
     };
+
+
 
 
 // ***** PUBLIC *******
@@ -437,7 +546,10 @@ GCODE.renderer = (function(){
                     var p1 = ctx.transformedPoint(0,0);
                     var p2 = ctx.transformedPoint(canvas.width,canvas.height);
                     ctx.clearRect(p1.x,p1.y,p2.x-p1.x,p2.y-p1.y);
-                    drawGrid();
+
+                    if(renderOptions["drawGrid"])
+                    	drawGrid();
+
                     if(renderOptions['alpha']){ctx.globalAlpha = 0.6;}
                     else {ctx.globalAlpha = 1;}
                     if(renderOptions['actualWidth']){renderOptions['extrusionWidth'] = gCodeOpts['filamentDia']*gCodeOpts['wh']/zoomFactor;}

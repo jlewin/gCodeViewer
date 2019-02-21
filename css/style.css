@@ -7,9 +7,8 @@ html {
 }
 #wrap {
     width:1000px;
-    height: 680px;
     position: relative;
-    margin: 20px auto;
+    margin: 20px auto 8px;
     background:#ffffff;
     /*border: 5px outset #bbb;*/
     -moz-border-radius: 10px;
@@ -44,16 +43,10 @@ html {
 #gcode {
     background: #ffffff;
     float:right;
-    width: 680px;
-    height: 680px;
     border-width: 2px;
-    border-style: none none none solid;
-    -webkit-border-top-right-radius: 10px;
-    -webkit-border-bottom-right-radius: 10px;
-    -moz-border-radius-topright: 10px;
-    -moz-border-radius-bottomright: 10px;
-    border-top-right-radius: 10px;
-    border-bottom-right-radius: 10px;}
+    border-style: none;
+    border-radius: 10px;
+}
 
 .CodeMirror {
     border-bottom-right-radius: 10px;
@@ -79,14 +72,11 @@ html {
     /*position: absolute;*/
     /*right: 0;*/
     /*top: 0;*/
-    height: 630px;
     width: 10px;
     float: right;
-    margin-right: 10px;
 }
 #slider-horizontal {
     height: 10px;
-    width: 640px;
     position: absolute;
     bottom: 0;
     margin-bottom: 5px;
@@ -105,7 +95,7 @@ html {
 }
 
 #tabs-min {
-    height: 680px;
+    min-height: 700px;
     padding: 0px;
 }
 
